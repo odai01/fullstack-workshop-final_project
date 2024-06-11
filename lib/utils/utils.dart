@@ -19,6 +19,6 @@ void goToAddPostScreen(BuildContext context) {
 
 void goToAuthScreen(BuildContext context) {
   Navigator.of(context).push(
-    MaterialPageRoute(builder: (context) => const AuthScreen()),
+    MaterialPageRoute(builder: (context) =>  AuthScreen()),
   );
 }

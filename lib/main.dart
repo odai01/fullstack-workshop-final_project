@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+
 // import 'package:workshop_project_template/screens/add_post_screen.dart';
 // import 'package:workshop_project_template/screens/auth_screen.dart';
 
 import 'screens/home_screen.dart';
+import 'screens/auth_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
@@ -19,7 +21,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'My Fun Project',
+      title: 'change thisssssssssssssssss',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightGreen),
         useMaterial3: true,
