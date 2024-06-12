@@ -24,6 +24,7 @@ class _AddPostScreenState extends State<AddPostScreen> {
       'content': _content,
       'username': user?.displayName ?? 'Unknown',
       'timestamp': Timestamp.now(),
+      'reactions': {}, // Initialize an empty reactions map
     });
     Navigator.of(context).pop();
   }
