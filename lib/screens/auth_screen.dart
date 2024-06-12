@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'home_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   @override
@@ -7,36 +9,64 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  final _formKey = GlobalKey<FormState>();
+  final _auth = FirebaseAuth.instance;
   bool _isLogin = true;
-  String _userEmail = '';
-  String _userPassword = '';
-  String _userName = '';
+  String _username = '';
+  String _email = '';
+  String _password = '';
+  final _formKey = GlobalKey<FormState>();
 
-  void _trySubmit() async {
+  Future<void> _trySubmit() async {
     final isValid = _formKey.currentState?.validate();
-    if (isValid != true) {
+    if (isValid == null || !isValid) {
       return;
     }
     _formKey.currentState?.save();
-
     UserCredential authResult;
+
     try {
       if (_isLogin) {
-        authResult = await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: _userEmail,
-          password: _userPassword,
+        // Fetch email from Firestore based on username
+        final userSnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .where('username', isEqualTo: _username)
+            .limit(1)
+            .get();
+        if (userSnapshot.docs.isEmpty) {
+          throw FirebaseAuthException(
+              code: 'user-not-found', message: 'No user found with this username.');
+        }
+        final email = userSnapshot.docs.first['email'];
+        authResult = await _auth.signInWithEmailAndPassword(
+          email: email,
+          password: _password,
         );
       } else {
-        authResult = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _userEmail,
-          password: _userPassword,
+        authResult = await _auth.createUserWithEmailAndPassword(
+          email: _email,
+          password: _password,
         );
-        await authResult.user?.updateDisplayName(_userName);
+        // Store user data in Firestore
+        await FirebaseFirestore.instance.collection('users').doc(authResult.user!.uid).set({
+          'username': _username,
+          'email': _email,
+        });
+        await _auth.currentUser?.updateDisplayName(_username);
       }
-    } catch (error) {
-      print(error);
-      // Handle error appropriately
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
+    } on FirebaseAuthException catch (e) {
+      var message = 'An error occurred, please check your credentials!';
+      if (e.message != null) {
+        message = e.message!;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
     }
   }
 
@@ -46,20 +76,20 @@ class _AuthScreenState extends State<AuthScreen> {
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.teal, Colors.indigo], // New gradient colors
+            colors: [Colors.teal, Colors.indigo],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
         ),
         child: Center(
           child: Card(
-            margin: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+            margin: EdgeInsets.all(20),
             color: Colors.white.withOpacity(0.85),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(15),
             ),
             child: Padding(
-              padding: EdgeInsets.all(20),
+              padding: EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
                 child: SingleChildScrollView(
@@ -74,36 +104,11 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                       ),
                       SizedBox(height: 20),
-                      if (!_isLogin)
-                        TextFormField(
-                          key: ValueKey('username'),
-                          decoration: InputDecoration(
-                            labelText: 'Username',
-                            prefixIcon: Icon(Icons.person),
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty || value.length < 4) {
-                              return 'Please enter at least 4 characters';
-                            }
-                            return null;
-                          },
-                          onSaved: (value) {
-                            _userName = value!;
-                          },
-                        ),
-                      SizedBox(height: 12),
                       TextFormField(
-                        key: ValueKey('email'),
-                        keyboardType: TextInputType.emailAddress,
+                        key: ValueKey('username'),
                         decoration: InputDecoration(
-                          labelText: 'Email address',
-                          prefixIcon: Icon(Icons.email),
+                          labelText: 'Username',
+                          prefixIcon: Icon(Icons.person),
                           filled: true,
                           fillColor: Colors.white,
                           border: OutlineInputBorder(
@@ -112,15 +117,40 @@ class _AuthScreenState extends State<AuthScreen> {
                           ),
                         ),
                         validator: (value) {
-                          if (value == null || !value.contains('@')) {
-                            return 'Please enter a valid email address';
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a username.';
                           }
                           return null;
                         },
                         onSaved: (value) {
-                          _userEmail = value!;
+                          _username = value!;
                         },
                       ),
+                      SizedBox(height: 12),
+                      if (!_isLogin)
+                        TextFormField(
+                          key: ValueKey('email'),
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: 'Email address',
+                            prefixIcon: Icon(Icons.email),
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                          validator: (value) {
+                            if (value == null || !value.contains('@')) {
+                              return 'Please enter a valid email address.';
+                            }
+                            return null;
+                          },
+                          onSaved: (value) {
+                            _email = value!;
+                          },
+                        ),
                       SizedBox(height: 12),
                       TextFormField(
                         key: ValueKey('password'),
@@ -137,12 +167,12 @@ class _AuthScreenState extends State<AuthScreen> {
                         obscureText: true,
                         validator: (value) {
                           if (value == null || value.length < 6) {
-                            return 'Password must be at least 6 characters long';
+                            return 'Password must be at least 6 characters long.';
                           }
                           return null;
                         },
                         onSaved: (value) {
-                          _userPassword = value!;
+                          _password = value!;
                         },
                       ),
                       SizedBox(height: 20),
@@ -154,20 +184,22 @@ class _AuthScreenState extends State<AuthScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                           ),
-                          backgroundColor: Colors.deepPurple, // Button color
-                          foregroundColor: Colors.white, // Text color
+                          backgroundColor: Colors.deepPurple,
+                          foregroundColor: Colors.white,
                         ),
                       ),
                       TextButton(
-                        child: Text(
-                          _isLogin ? 'Create new account' : 'I already have an account',
-                          style: TextStyle(color: Colors.deepPurple),
-                        ),
                         onPressed: () {
                           setState(() {
                             _isLogin = !_isLogin;
                           });
                         },
+                        child: Text(
+                          _isLogin ? 'Create new account' : 'I already have an account',
+                          style: TextStyle(
+                            color: Colors.deepPurple,
+                          ),
+                        ),
                       ),
                     ],
                   ),

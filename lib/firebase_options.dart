@@ -53,11 +53,13 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: '<>',
-    appId: '<>',
-    messagingSenderId: '<>',
-    projectId: '<>',
-    authDomain: '<>',
-    storageBucket: '<>',
+    apiKey: "AIzaSyCoEG-uQh3Q1ZvHGzNUaeyZdHQjNRNgJjo",
+    authDomain: "full-stack-workshop-4b953.firebaseapp.com",
+    databaseURL: "https://full-stack-workshop-4b953-default-rtdb.firebaseio.com",
+    projectId: "full-stack-workshop-4b953",
+    storageBucket: "full-stack-workshop-4b953.appspot.com",
+    messagingSenderId: "755534736206",
+    appId: "1:755534736206:web:95c361185a49e2242acc1f",
+    measurementId: "G-KX0PC7KZPK"
   );
 }

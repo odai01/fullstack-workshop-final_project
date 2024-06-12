@@ -1,69 +1,114 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:workshop_project_template/utils/mock_data.dart';
-import 'package:workshop_project_template/utils/utils.dart';
-
-import '../firebase/utils.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'auth_screen.dart';  // Import AuthScreen
+import 'add_post_screen.dart';  // Import AddPostScreen
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
-
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  _HomeScreenState createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  var db = FirebaseFirestore.instance;
+  void _logout() async {
+    await FirebaseAuth.instance.signOut();
+    setState(() {});  // Force rebuild to update UI after logout
+  }
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: isUserSignedIn()
-            ? Text('Welcome, ${FirebaseAuth.instance.currentUser?.displayName}')
-            : Text("Home Screen"),
-        actions: [
-          IconButton(
-            onPressed:
-                isUserSignedIn() ? () => goToAddPostScreen(context) : null,
-            icon: Icon(
-              Icons.add,
+        title: Text('Home Screen'),
+        actions: <Widget>[
+          if (user != null)
+            IconButton(
+              icon: Icon(Icons.logout),
+              onPressed: _logout,
             ),
-          ),
-          IconButton(
-            onPressed: () =>
-                {isUserSignedIn() ? logout() : goToAuthScreen(context)},
-            icon: Icon(
-              isUserSignedIn() ? Icons.logout : Icons.login,
+          if (user == null)
+            IconButton(
+              icon: Icon(Icons.login),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => AuthScreen()),
+                );
+              },
             ),
-          ),
         ],
       ),
-      body: Center(
-        child: getFullFeedWidget(texts),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.teal, Colors.indigo],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Column(
+          children: <Widget>[
+            if (user != null)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  'Hi, ${user.displayName}',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+              ),
+            Expanded(
+              child: StreamBuilder(
+                stream: FirebaseFirestore.instance.collection('posts').snapshots(),
+                builder: (ctx, AsyncSnapshot<QuerySnapshot> postSnapshot) {
+                  if (postSnapshot.hasError) {
+                    return Center(child: Text('An error occurred!'));
+                  }
+                  if (!postSnapshot.hasData || postSnapshot.data!.docs.isEmpty) {
+                    return Center(child: Text('No posts found.'));
+                  }
+                  final postDocs = postSnapshot.data!.docs;
+                  return ListView.builder(
+                    itemCount: postDocs.length,
+                    itemBuilder: (ctx, index) {
+                      final post = postDocs[index];
+                      final data = post.data() as Map<String, dynamic>;
+                      final username = data.containsKey('username') ? data['username'] : 'Unknown';
+                      return Card(
+                        margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                        child: ListTile(
+                          title: Text(data['title']),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(data['content']),
+                              SizedBox(height: 8),
+                              Text(
+                                'Posted by: $username',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
+      floatingActionButton: user != null
+          ? FloatingActionButton(
+              child: Icon(Icons.add),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => AddPostScreen()),
+                );
+              },
+            )
+          : null,
     );
-  }
-
-  Widget getFullFeedWidget(List feeds) {
-    // TODO - replace Placeholder with implementation of the home screen.
-    // Here you should get the posts from the Firebase database using the variable `db`.
-    // When getting the data, you will need to sort it according to the post's timestamp.
-
-    // If you want, you can use the `getSinglePostWidget()` to add the design a single post.
-    return Placeholder();
-  }
-
-  Widget getSinglePostWidget(String username, String text) {
-    // TODO - (Optional) You can use this function to implement the design of a single post.
-    return Placeholder();
-  }
-
-  void logout() {
-    print("Logging out");
-    FirebaseAuth.instance.signOut();
-    setState(() {});
   }
 }
